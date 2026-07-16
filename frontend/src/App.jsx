@@ -1,6 +1,6 @@
 import "./App.css";
 import hostelBg from "./assets/Hostel.jpg";
-import ApplicationForm from "./components/ApplicationForm";
+import ApplicationForm from "./components/ApplicationForm.jsx";
 
 function App() {
   return (
