@@ -1,7 +1,8 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import PhoneInput from "react-phone-number-input"
 import "react-phone-number-input/style.css"
 import api from "../api/axios"
+import "./ApplicationForm.css"
 
 function ApplicationForm() {
     // Data
@@ -110,6 +111,9 @@ function ApplicationForm() {
                     required
                 />
 
+                <label htmlFor="acadyear">
+                    Select Academic Year
+                </label>
                 <select
                     value={academicYear}
                     onChange={(e) => setAcademicYear(e.target.value)}>
