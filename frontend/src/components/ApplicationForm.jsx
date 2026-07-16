@@ -28,6 +28,10 @@ function ApplicationForm() {
     const [collegeId, setCollegeId] = useState(null)
     const [aadhaarCard, setAadhaarCard] = useState(null)
 
+    // Submission state
+    const [isSubmitting, setIsSubmitting] = useState(false)
+    const [submitMessage, setSubmitMessage] = useState("")
+
     //For Generation of Academic Year
     const currentYear = new Date().getFullYear();
     const acadYears = Array.from({ length: 6 }, (_, i) => ({
@@ -64,8 +68,7 @@ function ApplicationForm() {
             if (!course) return;
             try {
                 const response = await api.get(`/branches/${course}`);
-
-                setBranch(response.data);
+                setBranch(Array.isArray(response.data) ? response.data : []);
             } catch (error) {
                 console.log(error);
             }
@@ -79,7 +82,7 @@ function ApplicationForm() {
         const fetchCategory = async () => {
             try {
                 const response = await api.get(`/category`);
-                setCategory(response.data)
+                setCategory(Array.isArray(response.data) ? response.data : []);
             } catch (error) {
                 console.log(error);
             }
@@ -88,10 +91,80 @@ function ApplicationForm() {
     }, []);
 
 
+    // Handle form submission
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setIsSubmitting(true);
+        setSubmitMessage("");
+
+        try {
+            const formData = new FormData();
+
+            // Append text fields
+            formData.append("fullName", fullName);
+            formData.append("rollNo", rollNo);
+            formData.append("academicYear", academicYear);
+            formData.append("course", course);
+            formData.append("selectedBranch", selectedBranch);
+            formData.append("year", year);
+            formData.append("cgpa", cgpa);
+            formData.append("email", email);
+            formData.append("phone", phone);
+            formData.append("parentPhone", parentPhone);
+            formData.append("selectedCategory", selectedCategory);
+            formData.append("place", place);
+
+            // Append files (only if selected)
+            if (resultFile) formData.append("resultFile", resultFile);
+            if (feesReceipt) formData.append("feesReceipt", feesReceipt);
+            if (hostelId) formData.append("hostelId", hostelId);
+            if (collegeId) formData.append("collegeId", collegeId);
+            if (aadhaarCard) formData.append("aadhaarCard", aadhaarCard);
+
+            const response = await api.post("/form/submit", formData, {
+                headers: {
+                    "Content-Type": "multipart/form-data",
+                },
+            });
+
+            if (response.data.success) {
+                setSubmitMessage("✅ Application submitted successfully!");
+                // Reset form
+                setFullName("");
+                setRollNo("");
+                setPhone("");
+                setParentPhone("");
+                setAcademicYear("");
+                setYear("");
+                setCourse("");
+                setSelectedBranch("");
+                setSelectedCategory("");
+                setPlace("");
+                setCgpa("");
+                setEmail("");
+                setResultFile(null);
+                setFeesReceipt(null);
+                setHostelId(null);
+                setCollegeId(null);
+                setAadhaarCard(null);
+
+                // Reset file inputs
+                const fileInputs = document.querySelectorAll('input[type="file"]');
+                fileInputs.forEach(input => input.value = "");
+            }
+        } catch (error) {
+            console.error("Submission error:", error);
+            const errorMsg = error.response?.data?.message || "Something went wrong. Please try again.";
+            setSubmitMessage(`❌ ${errorMsg}`);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
 
     return (
         <>
-            <form action="">
+            <form onSubmit={handleSubmit}>
                 <label htmlFor="name">
                     Enter Your Full Name
                 </label>
@@ -296,12 +369,16 @@ function ApplicationForm() {
                     Upload Adhar Card
                 </label>
                 <input type="file"
-                    onChange={(e) => setAadhaarCard(e.target.value)}
+                    onChange={(e) => setAadhaarCard(e.target.files[0])}
                     accept=".pdf,image/*"
                     placeholder="Adhar Card" />
 
-                <button type="submit" className="btn">
-                    Apply
+                {submitMessage && (
+                    <p className="submit-message">{submitMessage}</p>
+                )}
+
+                <button type="submit" className="btn" disabled={isSubmitting}>
+                    {isSubmitting ? "Submitting..." : "Apply"}
                 </button>
             </form>
         </>
