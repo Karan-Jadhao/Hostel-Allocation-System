@@ -161,9 +161,18 @@ function ApplicationForm() {
         }
     };
 
+    const handleAllocation = async () => {
+        const response = await api.post("/allocation");
+        console.log(response);
+        
+        console.log(response.data.data);
+    }  
 
     return (
         <>
+        <button type="submit" className="btn" onClick={handleAllocation}>
+            Allocate
+        </button>
             <form onSubmit={handleSubmit}>
                 <label htmlFor="name">
                     Enter Your Full Name
