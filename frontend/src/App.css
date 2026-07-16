@@ -1,0 +1,153 @@
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:'Segoe UI',sans-serif;
+}
+
+body{
+    background:#eef3f8;
+}
+
+.container{
+    display:flex;
+    min-height:100vh;
+}
+
+/* LEFT SIDE */
+
+.left-panel{
+
+    width:45%;
+
+    background-size:cover;
+
+    background-position:center;
+
+    position:relative;
+}
+
+.overlay{
+
+    position:absolute;
+
+    inset:0;
+
+    background:rgba(0,0,0,.55);
+
+    color:white;
+
+    display:flex;
+
+    flex-direction:column;
+
+    justify-content:center;
+
+    align-items:center;
+
+    text-align:center;
+
+    padding:50px;
+}
+
+.overlay h1{
+
+    font-size:48px;
+
+    margin-bottom:20px;
+
+    animation:slideDown 1s;
+}
+
+.overlay p{
+
+    font-size:22px;
+
+    margin-bottom:40px;
+
+}
+
+.features{
+
+    width:100%;
+
+    max-width:350px;
+}
+
+.features div{
+
+    background:rgba(255,255,255,.15);
+
+    backdrop-filter:blur(8px);
+
+    margin:15px 0;
+
+    padding:16px;
+
+    border-radius:15px;
+
+    font-size:18px;
+
+}
+
+/* RIGHT SIDE */
+
+.right-panel{
+
+    width:55%;
+
+    background:white;
+
+    overflow-y:auto;
+
+    padding:50px;
+
+}
+
+/* Animation */
+
+@keyframes slideDown{
+
+    from{
+
+        opacity:0;
+
+        transform:translateY(-40px);
+
+    }
+
+    to{
+
+        opacity:1;
+
+        transform:translateY(0);
+
+    }
+
+}
+
+/* Mobile */
+
+@media(max-width:900px){
+
+.container{
+
+flex-direction:column;
+
+}
+
+.left-panel{
+
+height:350px;
+
+width:100%;
+
+}
+
+.right-panel{
+
+width:100%;
+
+}
+
+}
