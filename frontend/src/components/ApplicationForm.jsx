@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useState } from "react"
 import "./ApplicationForm.css";
 import PhoneInput from "react-phone-number-input"
@@ -8,6 +9,11 @@ function ApplicationForm() {
     const [parentPhone, setParentPhone] = useState("")
     return (
         <>
+        <div className="top-bar">
+    <Link to="/admin/login" className="admin-btn">
+        Admin Login
+    </Link>
+</div>
         <form action="">
         <label htmlFor="name">
             Enter Your Full Name

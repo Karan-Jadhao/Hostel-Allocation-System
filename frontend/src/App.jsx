@@ -1,35 +1,22 @@
-import "./App.css";
-import hostelBg from "./assets/Hostel.jpg";
+import { Routes, Route } from "react-router-dom";
+
 import ApplicationForm from "./components/ApplicationForm";
+import Home from "./components/Home";
+import AdminLogin from "./components/AdminLogin";
 
 function App() {
   return (
-    <div className="container">
+    <Routes>
+      <Route path="/" element={<Home />} />
 
-      <div
-        className="left-panel"
-        style={{ backgroundImage: `url(${hostelBg})` }}
-      >
-        <div className="overlay">
+       <Route path="/apply" element={<ApplicationForm />} />
 
-          <h1>🏠 Hostel Allocation System</h1>
-
-          <p>
-            Safe • Comfortable • Transparent
-          </p>
-
-          
-
-        </div>
-      </div>
-
-      <div className="right-panel">
-
-        <ApplicationForm />
-
-      </div>
-
-    </div>
+ 
+      <Route
+        path="/admin/login"
+        element={<AdminLogin />}
+      />
+    </Routes>
   );
 }
 

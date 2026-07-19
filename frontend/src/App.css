@@ -151,3 +151,179 @@ width:100%;
 }
 
 }
+
+.home-container{
+    min-height:100vh;
+    background-size:cover;
+    background-position:center;
+    background-repeat:no-repeat;
+}
+
+.home-overlay{
+
+    min-height:100vh;
+
+    background:rgba(0,0,0,.55);
+
+    display:flex;
+
+    flex-direction:column;
+
+    justify-content:center;
+
+    align-items:center;
+
+    color:white;
+
+    padding:30px;
+
+}
+
+.home-overlay h1{
+
+    font-size:56px;
+
+    margin-bottom:15px;
+
+}
+
+.home-overlay p{
+
+    font-size:22px;
+
+    margin-bottom:50px;
+
+}
+
+.portal-container{
+
+    display:flex;
+
+    gap:40px;
+
+    flex-wrap:wrap;
+
+    justify-content:center;
+
+}
+
+.portal-card{
+
+    width:320px;
+
+    background:rgba(255,255,255,.15);
+
+    backdrop-filter:blur(12px);
+
+    border-radius:20px;
+
+    padding:35px;
+
+    text-align:center;
+
+}
+
+.portal-card h2{
+
+    margin-bottom:20px;
+
+}
+
+.portal-card p{
+
+    font-size:16px;
+
+    margin-bottom:30px;
+
+}
+
+.portal-btn{
+
+    display:inline-block;
+
+    text-decoration:none;
+
+    background:#2563eb;
+
+    color:white;
+
+    padding:14px 30px;
+
+    border-radius:10px;
+
+    font-weight:600;
+
+    transition:.3s;
+
+}
+
+.portal-btn:hover{
+
+    background:#1d4ed8;
+
+}
+
+.back-btn{
+
+    text-decoration:none;
+
+    color:#2563eb;
+
+    font-weight:600;
+
+    display:inline-block;
+
+    margin-bottom:20px;
+
+}
+.apply-section{
+
+    margin-top:40px;
+
+    text-align:center;
+
+}
+
+.apply-text{
+
+    color:white;
+
+    font-size:18px;
+
+    margin-bottom:15px;
+
+    font-weight:500;
+
+}
+
+.apply-btn{
+
+    display:inline-block;
+
+    text-decoration:none;
+
+    background:#16a34a;
+
+    color:white;
+
+    padding:15px 35px;
+
+    border-radius:12px;
+
+    font-size:18px;
+
+    font-weight:600;
+
+    transition:.3s;
+
+}
+
+.apply-btn:hover{
+
+    background:#15803d;
+
+    transform:translateY(-3px);
+
+    box-shadow:0 10px 25px rgba(22,163,74,.35);
+
+}
