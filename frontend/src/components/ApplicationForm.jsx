@@ -4,6 +4,10 @@ import "react-phone-number-input/style.css"
 import api from "../api/axios"
 import "./ApplicationForm.css"
 
+function RequiredMark() {
+    return <span className="required-mark" aria-hidden="true">*</span>
+}
+
 function ApplicationForm() {
     // Data
     const [fullName, setFullName] = useState("")
@@ -19,6 +23,7 @@ function ApplicationForm() {
     const [selectedBranch, setSelectedBranch] = useState("")
     const [place, setPlace] = useState("")
     const [cgpa, setCgpa] = useState("")
+    const [competitiveRank, setCompetitiveRank] = useState("")
     const [email, setEmail] = useState("")
 
     // Files
@@ -26,11 +31,13 @@ function ApplicationForm() {
     const [feesReceipt, setFeesReceipt] = useState(null)
     const [hostelId, setHostelId] = useState(null)
     const [collegeId, setCollegeId] = useState(null)
+    const [admissionLetter, setAdmissionLetter] = useState(null)
     const [aadhaarCard, setAadhaarCard] = useState(null)
 
     // Submission state
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [submitMessage, setSubmitMessage] = useState("")
+    const isFirstYear = year === "First Year"
 
     //For Generation of Academic Year
     const currentYear = new Date().getFullYear();
@@ -108,6 +115,8 @@ function ApplicationForm() {
             formData.append("selectedBranch", selectedBranch);
             formData.append("year", year);
             formData.append("cgpa", cgpa);
+            formData.append("competitiveRank", competitiveRank);
+            formData.append("performanceType", isFirstYear ? "competitive_exam_percentile" : "cgpa");
             formData.append("email", email);
             formData.append("phone", phone);
             formData.append("parentPhone", parentPhone);
@@ -116,9 +125,13 @@ function ApplicationForm() {
 
             // Append files (only if selected)
             if (resultFile) formData.append("resultFile", resultFile);
-            if (feesReceipt) formData.append("feesReceipt", feesReceipt);
-            if (hostelId) formData.append("hostelId", hostelId);
-            if (collegeId) formData.append("collegeId", collegeId);
+            if (!isFirstYear && feesReceipt) formData.append("feesReceipt", feesReceipt);
+            if (isFirstYear) {
+                if (admissionLetter) formData.append("admissionLetter", admissionLetter);
+            } else {
+                if (hostelId) formData.append("hostelId", hostelId);
+                if (collegeId) formData.append("collegeId", collegeId);
+            }
             if (aadhaarCard) formData.append("aadhaarCard", aadhaarCard);
 
             const response = await api.post("/form/submit", formData, {
@@ -141,11 +154,13 @@ function ApplicationForm() {
                 setSelectedCategory("");
                 setPlace("");
                 setCgpa("");
+                setCompetitiveRank("");
                 setEmail("");
                 setResultFile(null);
                 setFeesReceipt(null);
                 setHostelId(null);
                 setCollegeId(null);
+                setAdmissionLetter(null);
                 setAadhaarCard(null);
 
                 // Reset file inputs
@@ -160,22 +175,12 @@ function ApplicationForm() {
             setIsSubmitting(false);
         }
     };
-
-    const handleAllocation = async () => {
-        const response = await api.post("/allocation");
-        console.log(response);
-        
-        console.log(response.data.data);
-    }  
-
+    
     return (
         <>
-        <button type="submit" className="btn" onClick={handleAllocation}>
-            Allocate
-        </button>
             <form onSubmit={handleSubmit}>
                 <label htmlFor="name">
-                    Enter Your Full Name
+                    Enter Your Full Name <RequiredMark />
                 </label>
                 <input type="text"
                     value={fullName}
@@ -183,22 +188,13 @@ function ApplicationForm() {
                     placeholder="Full Name"
                     required />
 
-                <label htmlFor="reg-no">
-                    Enter Your Roll Number
-                </label>
-                <input type="number"
-                    value={rollNo}
-                    onChange={(e) => setRollNo(e.target.value)}
-                    placeholder="Roll No."
-                    required
-                />
-
                 <label htmlFor="acadyear">
-                    Select Academic Year
+                    Select Academic Year <RequiredMark />
                 </label>
                 <select
                     value={academicYear}
-                    onChange={(e) => setAcademicYear(e.target.value)}>
+                    onChange={(e) => setAcademicYear(e.target.value)}
+                    required>
                     <option value="">Select Academic Year</option>
                     {acadYears.map((year) => (
                         <option key={year.value} value={year.value}>
@@ -208,12 +204,13 @@ function ApplicationForm() {
                 </select>
 
                 <label htmlFor="course">
-                    Course
+                    Course <RequiredMark />
                 </label>
                 <select
                     name="course"
                     value={course}
                     onChange={(e) => setCourse(e.target.value)}
+                    required
                 >
                     <option value="">
                         Select Course
@@ -233,11 +230,12 @@ function ApplicationForm() {
                 </select>
 
                 <label htmlFor="branch">
-                    Branch
+                    Branch <RequiredMark />
                 </label>
                 <select name="branch"
                     value={selectedBranch}
                     onChange={(e) => setSelectedBranch(e.target.value)}
+                    required
                 >
                     <option value="">Select Your Branch</option>
                     {
@@ -250,12 +248,22 @@ function ApplicationForm() {
                 </select>
 
                 <label htmlFor="year">
-                    Year Of Study
+                    Year Of Study <RequiredMark />
                 </label>
                 <select
                     name="year"
                     value={year}
-                    onChange={(e) => setYear(e.target.value)}
+                    onChange={(e) => {
+                        setYear(e.target.value)
+                        setRollNo("")
+                        setCgpa("")
+                        setCompetitiveRank("")
+                        setFeesReceipt(null)
+                        setHostelId(null)
+                        setCollegeId(null)
+                        setAdmissionLetter(null)
+                    }}
+                    required
                 >
                     <option value="">
                         Select Your Year
@@ -268,21 +276,55 @@ function ApplicationForm() {
                         ))
                     }
                 </select>
-                <label htmlFor="cgpa">
-                    Enter Latest CGPA
+
+                 <label htmlFor="roll-number">
+                    {isFirstYear ? "Enter Competitive Exam Application Number" : "Enter Your Roll Number"} <RequiredMark />
                 </label>
-                <input type="number"
-                    name="cgpa"
-                    step="0.01"
-                    min="0"
-                    max="10"
-                    value={cgpa}
-                    onChange={(e) => setCgpa(e.target.value)}
-                    placeholder="CGPA"
+                <input
+                    id="roll-number"
+                    type={isFirstYear ? "text" : "number"}
+                    value={rollNo}
+                    onChange={(e) => setRollNo(isFirstYear ? e.target.value.toUpperCase() : e.target.value)}
+                    placeholder={isFirstYear ? "Application / competitive exam roll number" : "Roll No."}
+                    pattern={isFirstYear ? "[A-Za-z0-9-]+" : undefined}
+                    title={isFirstYear ? "Use letters, numbers, and hyphens only." : undefined}
+                    required
                 />
 
+                
+                <label htmlFor="academic-score">
+                    {isFirstYear ? "Enter Latest Competitive Exam Score / Percentile" : "Enter Latest CGPA"} <RequiredMark />
+                </label>
+                <input type="number"
+                    id="academic-score"
+                    name={isFirstYear ? "competitive-score" : "cgpa"}
+                    step="0.01"
+                    min="0"
+                    max={isFirstYear ? "100" : "10"}
+                    value={cgpa}
+                    onChange={(e) => setCgpa(e.target.value)}
+                    placeholder={isFirstYear ? "Score or percentile" : "CGPA"}
+                    required
+                />
+
+                {isFirstYear && <>
+                    <label htmlFor="competitive-rank">
+                        Enter Competitive Exam Rank <RequiredMark />
+                    </label>
+                    <input type="number"
+                        id="competitive-rank"
+                        name="competitive-rank"
+                        min="1"
+                        step="1"
+                        value={competitiveRank}
+                        onChange={(e) => setCompetitiveRank(e.target.value)}
+                        placeholder="Exam rank"
+                        required
+                    />
+                </>}
+
                 <label htmlFor="email">
-                    Enter Your Email 
+                    Enter Your Email <RequiredMark />
                 </label>
 
                 <input type="email" 
@@ -292,7 +334,7 @@ function ApplicationForm() {
                 required/>
 
                 <label htmlFor="phone-number">
-                    Enter Your Phone Number
+                    Enter Your Phone Number <RequiredMark />
                 </label>
                 <PhoneInput
                     international
@@ -304,7 +346,7 @@ function ApplicationForm() {
                 />
 
                 <label htmlFor="phone-number">
-                    Enter Your Parent's/Gaurdian's Phone Number
+                    Enter Your Parent's/Gaurdian's Phone Number <RequiredMark />
                 </label>
                 <PhoneInput
                     international
@@ -316,11 +358,12 @@ function ApplicationForm() {
                 />
 
                 <label htmlFor="category">
-                    Category
+                    Category <RequiredMark />
                 </label>
                 <select name="category"
                     value={selectedCategory}
-                    onChange={(e) => setSelectedCategory(e.target.value)}>
+                    onChange={(e) => setSelectedCategory(e.target.value)}
+                    required>
                     <option value="">Select Category</option>
                     {
                         category.map((c) => (
@@ -332,55 +375,78 @@ function ApplicationForm() {
                 </select>
 
                 <label htmlFor="native-place">
-                    Enter Your Native Place
+                    Enter Your Native Place <RequiredMark />
                 </label>
                 <input type="text"
                     name="native-place"
                     value={place}
                     onChange={(e) => setPlace(e.target.value)}
-                    placeholder="Native Place" />
+                    placeholder="Native Place"
+                    required />
 
                 <label htmlFor="result">
-                    Upload Latest Result
+                    Upload Latest Result <RequiredMark />
                 </label>
                 <input type="file"
                     accept=".pdf,image/*"
                     onChange={(e) => setResultFile(e.target.files[0])}
                     placeholder="Latest Result"
+                    required
                 />
 
-                <label htmlFor="fees">
-                    Upload Mess & Hostel Fees Receipt (combined in one pdf)
-                </label>
-                <input type="file"
-                    onChange={(e) => setFeesReceipt(e.target.files[0])}
-                    accept=".pdf"
-                    placeholder="Mess & Hostel Fees"
-                />
+                {!isFirstYear && <>
+                    <label htmlFor="fees">
+                        Upload Mess & Hostel Fees Receipt (combined in one pdf) <RequiredMark />
+                    </label>
+                    <input type="file"
+                        id="fees"
+                        onChange={(e) => setFeesReceipt(e.target.files[0])}
+                        accept=".pdf"
+                        placeholder="Mess & Hostel Fees"
+                        required
+                    />
+                </>}
 
-                <label htmlFor="hostelId">
-                    Upload Hostel ID
-                </label>
-                <input type="file"
-                    onChange={(e) => setHostelId(e.target.files[0])}
-                    accept=".pdf,image/*"
-                    placeholder="Hostel ID" />
+                {isFirstYear ? <>
+                    <label htmlFor="admission-letter">
+                        Upload Admission Letter <RequiredMark />
+                    </label>
+                    <input type="file"
+                        id="admission-letter"
+                        onChange={(e) => setAdmissionLetter(e.target.files[0])}
+                        accept=".pdf,image/*"
+                        placeholder="Admission Letter"
+                        required />
+                </> : <>
+                    <label htmlFor="hostelId">
+                        Upload Hostel ID <RequiredMark />
+                    </label>
+                    <input type="file"
+                        id="hostelId"
+                        onChange={(e) => setHostelId(e.target.files[0])}
+                        accept=".pdf,image/*"
+                        placeholder="Hostel ID"
+                        required />
 
-                <label htmlFor="collegeId">
-                    Upload College ID
-                </label>
-                <input type="file"
-                    onChange={(e) => setCollegeId(e.target.files[0])}
-                    accept=".pdf,image/*"
-                    placeholder="College ID" />
+                    <label htmlFor="collegeId">
+                        Upload College ID <RequiredMark />
+                    </label>
+                    <input type="file"
+                        id="collegeId"
+                        onChange={(e) => setCollegeId(e.target.files[0])}
+                        accept=".pdf,image/*"
+                        placeholder="College ID"
+                        required />
+                </>}
 
                 <label htmlFor="adharcard">
-                    Upload Adhar Card
+                    Upload Adhar Card <RequiredMark />
                 </label>
                 <input type="file"
                     onChange={(e) => setAadhaarCard(e.target.files[0])}
                     accept=".pdf,image/*"
-                    placeholder="Adhar Card" />
+                    placeholder="Adhar Card"
+                    required />
 
                 {submitMessage && (
                     <p className="submit-message">{submitMessage}</p>

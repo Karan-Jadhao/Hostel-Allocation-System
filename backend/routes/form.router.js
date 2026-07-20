@@ -26,12 +26,13 @@ function uploadToCloudinary(fileBuffer, fileName) {
   });
 }
 
-// Multer middleware for the 5 file fields
+// Multer middleware for application documents
 const uploadFields = upload.fields([
   { name: "resultFile", maxCount: 1 },
   { name: "feesReceipt", maxCount: 1 },
   { name: "hostelId", maxCount: 1 },
   { name: "collegeId", maxCount: 1 },
+  { name: "admissionLetter", maxCount: 1 },
   { name: "aadhaarCard", maxCount: 1 },
 ]);
 
@@ -72,6 +73,10 @@ formRouter.post("/submit", uploadFields, async (req, res) => {
       ? await uploadToCloudinary(files.collegeId[0].buffer, files.collegeId[0].originalname)
       : null;
 
+    const admissionLetterUrl = files.admissionLetter
+      ? await uploadToCloudinary(files.admissionLetter[0].buffer, files.admissionLetter[0].originalname)
+      : null;
+
     const aadhaarUrl = files.aadhaarCard
       ? await uploadToCloudinary(files.aadhaarCard[0].buffer, files.aadhaarCard[0].originalname)
       : null;
@@ -94,7 +99,8 @@ formRouter.post("/submit", uploadFields, async (req, res) => {
       result_pdf_path: resultUrl,
       hostel_fee_receipt_path: feesReceiptUrl,
       hostel_id: hostelIdUrl,
-      college_id: collegeIdUrl,
+      // First-year applicants use the existing admission-document slot instead of a college ID.
+      college_id: collegeIdUrl || admissionLetterUrl,
       adhar: aadhaarUrl,
     }).select();
 
