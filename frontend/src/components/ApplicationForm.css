@@ -26,6 +26,11 @@ form label{
     color:#34495e;
 }
 
+.required-mark {
+    color: #dc2626;
+    font-weight: 700;
+}
+
 form input,
 form select{
 
