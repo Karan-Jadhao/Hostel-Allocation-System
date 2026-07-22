@@ -1,134 +1,278 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import api from "../api/axios";
-import "./AdminDashboard.css";
+import "../styles/AdminDashboard.css";
 
-const allocationSteps = [
-  ["01", "Lock applications", "Application period closes before allocation runs."],
-  ["02", "Run allocation", "Seats are assigned by merit, category and branch rules."],
-  ["03", "Publish results", "Review the list and notify successful applicants."],
-];
+const courses = ["B.tech", "M.tech", "MCA", "Diploma"];
+const courseYears = {
+  "B.tech": ["First Year", "Second Year", "Third Year", "Final Year"],
+  "M.tech": ["First Year", "Second Year"],
+  MCA: ["First Year", "Second Year"],
+  Diploma: ["First Year", "Second Year", "Final Year"],
+};
 
-const activity = [
-  ["Application window", "Closes today at 6:00 PM", "warning"],
-  ["Seat matrix", "108 seats configured", "success"],
-  ["Last allocation", "No allocation has been run yet", "neutral"],
-];
+const currentYear = new Date().getFullYear();
+const academicYears = Array.from(
+  { length: 6 },
+  (_, index) => `${currentYear - index}-${currentYear - index + 1}`,
+);
 
 function AdminDashboard() {
-  const [showConfirmation, setShowConfirmation] = useState(false);
-  const [isAllocating, setIsAllocating] = useState(false);
-  const [result, setResult] = useState(null);
-  const [summary, setSummary] = useState({ totalApplications: 0, availableSeats: 0 });
+  const [selection, setSelection] = useState({
+    academicYear: academicYears[0],
+    course: "",
+    year: "",
+  });
+  const [applicants, setApplicants] = useState([]);
+  const [seatRows, setSeatRows] = useState([]);
   const [allocationResults, setAllocationResults] = useState([]);
-  const [hasAllocationRun, setHasAllocationRun] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [isAllocating, setIsAllocating] = useState(false);
+  const [isApplicationLive, setIsApplicationLive] = useState(false);
+  const [isStatusLoading, setIsStatusLoading] = useState(false);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [message, setMessage] = useState(null);
+  const requestId = useRef(0);
+  const statusRequestId = useRef(0);
 
-  useEffect(() => {
-    const loadSummary = async () => {
-      try {
-        const response = await api.get("/allocation/summary");
-        setSummary(response.data.data);
-      } catch (error) {
-        console.error("Unable to load allocation dashboard summary:", error);
-      }
-    };
+  const selectionReady = Boolean(
+    selection.academicYear && selection.course && selection.year,
+  );
+  const query = useMemo(
+    () => ({
+      academicYear: selection.academicYear,
+      course: selection.course,
+      year: selection.year,
+    }),
+    [selection.academicYear, selection.course, selection.year],
+  );
 
-    loadSummary();
-  }, []);
-
-  const startAllocation = async () => {
-    setIsAllocating(true);
-    setResult(null);
+  const loadDashboard = useCallback(async () => {
+    const currentRequest = requestId.current + 1;
+    requestId.current = currentRequest;
+    setLoading(true);
+    setAllocationResults([]);
 
     try {
-      const response = await api.post("/allocation");
-      const studentResults = Array.isArray(response.data.data) ? response.data.data : [];
-      setAllocationResults(studentResults);
-      setHasAllocationRun(true);
-      setResult({
-        type: "success",
-        message: response.data.message || "Allocation completed successfully.",
-        allocated: response.data.totalAllocated,
-      });
-      setSummary((currentSummary) => ({ ...currentSummary, totalApplications: studentResults.length }));
-      window.setTimeout(() => document.getElementById("results")?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+      const applicantResponse = await api.get("/admin/applicants", { params: query });
+      const seatMatrixResponse = await api.get("/seat-matrix", { params: query });
+
+      if (requestId.current !== currentRequest) return;
+
+      setApplicants(Array.isArray(applicantResponse.data) ? applicantResponse.data : []);
+      setSeatRows(Array.isArray(seatMatrixResponse.data) ? seatMatrixResponse.data : []);
     } catch (error) {
-      setResult({
+      if (requestId.current !== currentRequest) return;
+
+      setApplicants([]);
+      setSeatRows([]);
+      setMessage({
         type: "error",
-        message: error.response?.data?.message || "Allocation could not be started. Please try again.",
+        text: error.response?.data?.message || "Could not load this allocation group.",
       });
     } finally {
-      setIsAllocating(false);
-      setShowConfirmation(false);
+      if (requestId.current === currentRequest) {
+        setLoading(false);
+      }
+    }
+  }, [query]);
+
+  const loadApplicationStatus = useCallback(async () => {
+    if (!selectionReady) return;
+
+    const currentRequest = statusRequestId.current + 1;
+    statusRequestId.current = currentRequest;
+    setIsStatusLoading(true);
+
+    try {
+      const response = await api.get("/form-status", { params: query });
+
+      if (statusRequestId.current !== currentRequest) return;
+
+      setIsApplicationLive(Boolean(response.data?.isLive));
+    } catch (error) {
+      console.error(error);
+      if (statusRequestId.current !== currentRequest) return;
+
+      setIsApplicationLive(false);
+      setMessage({
+        type: "error",
+        text: "Unable to load application status.",
+      });
+    } finally {
+      if (statusRequestId.current === currentRequest) {
+        setIsStatusLoading(false);
+      }
+    }
+  }, [query, selectionReady]);
+
+  useEffect(() => {
+    if (!selectionReady) return;
+
+    const loadTimer = window.setTimeout(() => {
+      void loadDashboard();
+      void loadApplicationStatus();
+    }, 0);
+
+    return () => {
+      window.clearTimeout(loadTimer);
+    };
+  }, [loadApplicationStatus, loadDashboard, selectionReady]);
+
+  const updateSelection = (field, value) => {
+    setMessage(null);
+    setShowConfirmation(false);
+    setAllocationResults([]);
+    const nextSelection = {
+      ...selection,
+      [field]: value,
+      ...(field === "course" ? { year: "" } : {}),
+    };
+
+    statusRequestId.current += 1;
+    setIsApplicationLive(false);
+    setIsStatusLoading(Boolean(
+      nextSelection.academicYear && nextSelection.course && nextSelection.year,
+    ));
+
+    if (!nextSelection.academicYear || !nextSelection.course || !nextSelection.year) {
+      requestId.current += 1;
+      setApplicants([]);
+      setSeatRows([]);
+      setLoading(false);
+      setIsStatusLoading(false);
+    }
+
+    setSelection(nextSelection);
+  };
+
+  const toggleApplicationStatus = async () => {
+    if (!selectionReady || isUpdatingStatus) return;
+
+    const nextStatus = !isApplicationLive;
+
+    statusRequestId.current += 1;
+    setIsUpdatingStatus(true);
+    setMessage(null);
+
+    try {
+      const response = await api.put("/form-status", {
+        ...selection,
+        isLive: nextStatus,
+      });
+
+      setIsApplicationLive(nextStatus);
+      setMessage({
+        type: "success",
+        text: response.data?.message || "Application status updated successfully.",
+      });
+    } catch (error) {
+      console.error(error)
+      setMessage({
+        type: "error",
+        text: "Unable to update application status.",
+      });
+    } finally {
+      setIsUpdatingStatus(false);
     }
   };
 
-  return (
-    <main className="admin-shell">
-      <aside className="sidebar">
-        <div className="brand"><span className="brand-mark">H</span><span>Hostel<span className="brand-accent">Flow</span></span></div>
-        <nav className="main-nav" aria-label="Admin navigation">
-          <a className="nav-link active" href="#dashboard"><span>▦</span> Overview</a>
-          <a className="nav-link" href="#applications"><span>◫</span> Applications <b>248</b></a>
-          <a className="nav-link" href="#allocation"><span>◌</span> Allocation</a>
-          <a className="nav-link" href="#students"><span>♙</span> Students</a>
-          <a className="nav-link" href="#reports"><span>▤</span> Reports</a>
-        </nav>
-        <div className="sidebar-bottom">
-          <a className="nav-link" href="#settings"><span>⚙</span> Settings</a>
-          <div className="admin-profile"><div className="avatar">AR</div><div><strong>Admin Raut</strong><small>Administrator</small></div><span className="more">•••</span></div>
-        </div>
-      </aside>
+  const startAllocation = async () => {
+    setIsAllocating(true);
+    setMessage(null);
+    setShowConfirmation(false);
 
-      <section className="dashboard" id="dashboard">
-        <header className="topbar">
-          <div className="crumb">Administration <span>/</span> Overview</div>
-          <div className="topbar-actions"><button className="icon-button" aria-label="Notifications">♧<i /></button><button className="help-button">? <span>Help center</span></button></div>
-        </header>
+    try {
+      const response = await api.post("/allocation", selection);
+      const results = Array.isArray(response.data?.data) ? response.data.data : [];
 
-        <div className="content">
-          <div className="page-heading">
-            <div><p className="eyebrow">ACADEMIC YEAR 2026–27</p><h1>Good morning, Admin.</h1><p>Here’s what’s happening with this year’s hostel allocation.</p></div>
-            <button className="outline-button">⌄&nbsp; 2026–27</button>
-          </div>
+      setAllocationResults(results);
+      setMessage({
+        type: "success",
+        text: response.data?.message || "Allocation completed.",
+        detail: `${results.filter((student) => student.allocated).length} students were allotted a seat.`,
+      });
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text: error.response?.data?.message || "Allocation could not be completed.",
+      });
+    } finally {
+      setIsAllocating(false);
+    }
+  };
 
-          <section className="stat-grid" aria-label="Allocation summary">
-            <article className="stat-card"><div className="stat-icon blue">◫</div><div><p>Total applications</p><strong>{summary.totalApplications}</strong><small>Loaded from the application database</small></div></article>
-            <article className="stat-card"><div className="stat-icon violet">▦</div><div><p>Available seats</p><strong>{summary.availableSeats}</strong><small>Configured in the seat matrix</small></div></article>
-            <article className="stat-card"><div className="stat-icon orange">◷</div><div><p>Not allocated</p><strong>{allocationResults.filter((student) => !student.allocated).length}</strong><small className="attention">Shown after allocation runs</small></div></article>
-            <article className="stat-card"><div className="stat-icon green">✓</div><div><p>Allocated students</p><strong>{allocationResults.filter((student) => student.allocated).length}</strong><small className="up">Results from the latest run</small></div></article>
-          </section>
+  const branchCount = new Set(
+    applicants.map((applicant) => applicant.branch).filter(Boolean),
+  ).size;
 
-          <section className="allocation-card" id="allocation">
-            <div className="allocation-visual"><div className="rings"><span /><span /><span /></div><div className="allocation-glyph">⌂</div></div>
-            <div className="allocation-copy"><p className="eyebrow">ALLOCATION CONTROL CENTER</p><h2>Ready to start allocation?</h2><p>All submitted applications will be processed using the current seat matrix and allocation rules.</p><div className="ready-row"><span className="ready-dot">✓</span> {summary.totalApplications} applications are ready for allocation</div></div>
-            <button className="start-button" onClick={() => setShowConfirmation(true)} disabled={isAllocating}><span>{isAllocating ? "Processing..." : "Start allocation"}</span><b>→</b></button>
-          </section>
+  const availableSeats = seatRows.reduce((sum, row) => {
+    const hasTotalSeats = row.total_seats !== undefined
+      && row.total_seats !== null
+      && row.total_seats !== "";
 
-          {result && <div className={`result-banner ${result.type}`} role="status"><span>{result.type === "success" ? "✓" : "!"}</span><div><strong>{result.message}</strong>{result.allocated !== undefined && <small>{result.allocated} students allocated in this run.</small>}</div><button aria-label="Dismiss message" onClick={() => setResult(null)}>×</button></div>}
+    if (hasTotalSeats) return sum + (Number(row.total_seats) || 0);
 
-          {hasAllocationRun && <section className="results-card" id="results">
-            <div className="section-title">
-              <div><p className="eyebrow">ALLOCATION RESULTS</p><h2>Student allocation list</h2><p className="results-subtitle">Results from the latest allocation run.</p></div>
-              <span className="results-count">{allocationResults.length} students</span>
+    const numberOfBranches = Number(
+      row.number_of_branches ?? row.branch_count ?? branchCount,
+    ) || 0;
+    const perBranchSeats = Number(row.per_branch_seats) || 0;
+    const extraSeats = Number(row.extra_seats) || 0;
+
+    return sum + (perBranchSeats * numberOfBranches) + extraSeats;
+  }, 0);
+
+  const canStartAllocation = selectionReady
+    && applicants.length > 0
+    && seatRows.length > 0
+    && !isAllocating;
+
+  return <main className="admin-shell">
+    <aside className="sidebar"><div className="brand"><span className="brand-mark">H</span><span>Hostel<span className="brand-accent">Flow</span></span></div>
+      <nav className="main-nav"><a className="nav-link active" href="#dashboard">Overview</a><Link className="nav-link" to="/seat-matrix">Seat Matrix</Link><a className="nav-link" href="#applications">Applications <b>{applicants.length}</b></a><a className="nav-link" href="#allocation">Allocation</a></nav>
+      <div className="sidebar-bottom"><div className="admin-profile"><div className="avatar">AR</div><div><strong>Admin</strong><small>Administrator</small></div></div></div>
+    </aside>
+    <section className="dashboard" id="dashboard"><header className="topbar"><div className="crumb">Administration <span>/</span> Overview</div></header>
+      <div className="content"><div className="page-heading"><div><p className="eyebrow">HOSTEL ALLOCATION</p><h1>Allocation control centre</h1><p>Choose an academic group to manage its application window and allocation.</p></div></div>
+        <section className="selection-card"><div className="section-title"><div><p className="eyebrow">ALLOCATION GROUP</p><h2>Academic details</h2></div></div>
+          <div className="selection-grid"><label>Academic year<select value={selection.academicYear} onChange={(event) => updateSelection("academicYear", event.target.value)}>{academicYears.map((item) => <option key={item} value={item}>{item}</option>)}</select></label><label>Course<select value={selection.course} onChange={(event) => updateSelection("course", event.target.value)}><option value="">Select course</option>{courses.map((item) => <option key={item} value={item}>{item}</option>)}</select></label><label>Year of study<select value={selection.year} onChange={(event) => updateSelection("year", event.target.value)} disabled={!selection.course}><option value="">Select year</option>{(courseYears[selection.course] || []).map((item) => <option key={item} value={item}>{item}</option>)}</select></label></div>
+        </section>
+        <section className="selection-card" aria-live="polite">
+          <div className="section-title">
+            <div>
+              <p className="eyebrow">APPLICATION STATUS</p>
+              <h2>Application Window</h2>
             </div>
-            <div className="table-scroll">
-              <table>
-                <thead><tr><th>Sr. no.</th><th>Student name</th><th>Branch</th><th>CGPA</th><th>Native place</th><th>Student category</th><th>Allotted through</th><th>Status</th></tr></thead>
-                <tbody>{allocationResults.length > 0 ? allocationResults.map((student, index) => <tr key={student.id || index}><td>{index + 1}</td><td className="student-name">{student.name}</td><td>{student.branch}</td><td>{student.cgpa}</td><td>{student.nativePlace}</td><td>{student.studentCategory}</td><td>{student.allocatedCategory}</td><td><span className={`allocation-status ${student.allocated ? "allotted" : "not-allotted"}`}>{student.allocated ? "Allotted" : "Not allotted"}</span></td></tr>) : <tr><td className="empty-results" colSpan="8">No student applications were found for this allocation run.</td></tr>}</tbody>
-              </table>
-            </div>
-          </section>}
-
-          <div className="lower-grid">
-            <section className="workflow-card"><div className="section-title"><div><p className="eyebrow">WORKFLOW</p><h2>Allocation process</h2></div><a href="#allocation">View rules →</a></div><div className="steps">{allocationSteps.map(([number, title, description], index) => <div className="step" key={number}><div className={`step-number ${index === 1 ? "current" : ""}`}>{number}</div><div><h3>{title}</h3><p>{description}</p></div>{index === 0 && <span className="step-state">Open</span>}</div>)}</div></section>
-            <section className="activity-card"><div className="section-title"><div><p className="eyebrow">SYSTEM STATUS</p><h2>Activity</h2></div></div>{activity.map(([title, description, state]) => <div className="activity" key={title}><span className={`status-dot ${state}`} /><div><h3>{title}</h3><p>{description}</p></div></div>)}<a className="view-all" href="#reports">View activity log →</a></section>
           </div>
-        </div>
-      </section>
-
-      {showConfirmation && <div className="modal-backdrop" role="presentation"><div className="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title"><div className="modal-icon">!</div><h2 id="confirm-title">Start hostel allocation?</h2><p>This will process all verified applications against the current seat matrix. This action may take a moment.</p><div className="modal-actions"><button className="cancel-button" onClick={() => setShowConfirmation(false)}>Cancel</button><button className="confirm-button" onClick={startAllocation}>Yes, start allocation</button></div></div></div>}
-    </main>
-  );
+          <div className="ready-row">
+            <span>Current status</span>
+            <span className={`allocation-status ${isApplicationLive ? "allotted" : "not-allotted"}`}>
+              {isStatusLoading ? "Loading..." : isApplicationLive ? "🟢 Applications Open" : "🔴 Applications Closed"}
+            </span>
+          </div>
+          <div className="ready-row">
+            <span>Last action: {isApplicationLive ? "Open" : "Closed"}</span>
+            <button
+              className="confirm-button"
+              type="button"
+              disabled={!selectionReady || isStatusLoading || isUpdatingStatus}
+              onClick={toggleApplicationStatus}
+              style={isApplicationLive ? { background: "#EF4444", borderColor: "#EF4444", color: "#FFFFFF" } : undefined}
+            >
+              {isUpdatingStatus ? "Updating..." : isApplicationLive ? "Close Applications" : "Open Applications"}
+            </button>
+          </div>
+        </section>
+        {message && <div className={`result-banner ${message.type}`} role="status"><span>{message.type === "success" ? "✓" : "!"}</span><div><strong>{message.text}</strong>{message.detail && <small>{message.detail}</small>}</div><button onClick={() => setMessage(null)} aria-label="Dismiss">×</button></div>}
+        <section className="stat-grid" aria-label="Allocation summary"><article className="stat-card"><div><p>Applied applicants</p><strong>{loading ? "…" : applicants.length}</strong><small>For the selected group</small></div></article><article className="stat-card"><div><p>Configured seats</p><strong>{availableSeats}</strong><small>From the current seat matrix</small></div></article><article className="stat-card"><div><p>Allocated students</p><strong>{allocationResults.filter((student) => student.allocated).length}</strong><small>From this allocation run</small></div></article><article className="stat-card"><div><p>Not allocated</p><strong>{allocationResults.filter((student) => !student.allocated).length}</strong><small>From this allocation run</small></div></article></section>
+        <section className="allocation-card" id="allocation"><div className="allocation-copy"><p className="eyebrow">ALLOCATION</p><h2>Run seat allocation</h2><p>Processes the selected group using its saved seat matrix, branch and category rules.</p><div className="ready-row">{selectionReady ? `${applicants.length} applications ready for allocation` : "Select the academic details first"}</div></div><button className="start-button" disabled={!canStartAllocation} onClick={() => setShowConfirmation(true)}><span>{isAllocating ? "Processing..." : "Start allocation"}</span><b>→</b></button></section>
+        <section className="results-card" id="applications"><div className="section-title"><div><p className="eyebrow">APPLIED APPLICANTS</p><h2>Applicant information</h2><p className="results-subtitle">Applications submitted for the selected academic group.</p></div><span className="results-count">{applicants.length} applicants</span></div><div className="table-scroll"><table><thead><tr><th>Name</th><th>Application / Roll no.</th><th>Branch</th><th>Year</th><th>Category</th><th>{selection.year === "First Year" ? "Rank" : "CGPA"}</th><th>Contact</th></tr></thead><tbody>{applicants.length ? applicants.map((student) => <tr key={student.id}><td className="student-name">{student.name}</td><td>{student.applicationNo}</td><td>{student.branch}</td><td>{student.year}</td><td>{student.category}</td><td>{student.merit ?? "—"}</td><td>{student.email || student.phone || "—"}</td></tr>) : <tr><td colSpan="7" className="empty-results">{selectionReady ? "No applications have been submitted for this group." : "Select academic details to see applicants."}</td></tr>}</tbody></table></div></section>
+        {allocationResults.length > 0 && <section className="results-card"><div className="section-title"><div><p className="eyebrow">ALLOCATION RESULTS</p><h2>Allocation result</h2></div><span className="results-count">{allocationResults.length} students</span></div><div className="table-scroll"><table><thead><tr><th>Name</th><th>Branch</th><th>Merit</th><th>Student category</th><th>Allotted through</th><th>Status</th></tr></thead><tbody>{allocationResults.map((student) => <tr key={student.id}><td className="student-name">{student.name}</td><td>{student.branch}</td><td>{student.merit ?? "—"}</td><td>{student.studentCategory}</td><td>{student.allocatedCategory}</td><td><span className={`allocation-status ${student.allocated ? "allotted" : "not-allotted"}`}>{student.allocated ? "Allotted" : "Not allotted"}</span></td></tr>)}</tbody></table></div></section>}
+      </div>
+    </section>
+    {showConfirmation && <div className="modal-backdrop"><div className="confirm-modal" role="dialog" aria-modal="true"><div className="modal-icon">!</div><h2>Start hostel allocation?</h2><p>Academic Year: {selection.academicYear}<br />Course: {selection.course}<br />Year: {selection.year}<br />Number of Applicants: {applicants.length}<br />Available Seats: {availableSeats}</p><div className="modal-actions"><button className="cancel-button" onClick={() => setShowConfirmation(false)}>Cancel</button><button className="confirm-button" onClick={startAllocation}>Yes, start allocation</button></div></div></div>}
+  </main>;
 }
 
 export default AdminDashboard;

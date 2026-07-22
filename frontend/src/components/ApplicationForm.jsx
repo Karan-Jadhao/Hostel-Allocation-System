@@ -2,7 +2,7 @@ import { useState, useEffect } from "react"
 import PhoneInput from "react-phone-number-input"
 import "react-phone-number-input/style.css"
 import api from "../api/axios"
-import "./ApplicationForm.css"
+import "../styles/ApplicationForm.css"
 
 function RequiredMark() {
     return <span className="required-mark" aria-hidden="true">*</span>
@@ -37,7 +37,13 @@ function ApplicationForm() {
     // Submission state
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [submitMessage, setSubmitMessage] = useState("")
+    const [formStatus, setFormStatus] = useState(null)
+    const [isStatusLoading, setIsStatusLoading] = useState(false)
+    const [statusError, setStatusError] = useState("")
     const isFirstYear = year === "First Year"
+    const hasAcademicSelection = Boolean(academicYear && course && year)
+    const shouldRenderApplicationFields = hasAcademicSelection
+        && formStatus?.isLive !== false
 
     //For Generation of Academic Year
     const currentYear = new Date().getFullYear();
@@ -56,7 +62,7 @@ function ApplicationForm() {
         ],
         "M.tech": [
             "First Year",
-            "second Year"
+            "Second Year"
         ],
         "MCA": [
             "First Year",
@@ -96,6 +102,48 @@ function ApplicationForm() {
         }
         fetchCategory();
     }, []);
+
+    useEffect(() => {
+        if (!hasAcademicSelection) return;
+
+        let isActive = true;
+
+        const fetchFormStatus = async () => {
+            setIsStatusLoading(true);
+            setStatusError("");
+
+            try {
+                const response = await api.get("/form-status", {
+                    params: {
+                        academicYear,
+                        course,
+                        year,
+                    },
+                });
+
+                if (isActive) {
+                    setFormStatus({ isLive: Boolean(response.data?.isLive) });
+                }
+            } catch (error) {
+                if (isActive) {
+                    setFormStatus(null);
+                    setStatusError(
+                        error.response?.data?.message || "Unable to check application status.",
+                    );
+                }
+            } finally {
+                if (isActive) {
+                    setIsStatusLoading(false);
+                }
+            }
+        };
+
+        fetchFormStatus();
+
+        return () => {
+            isActive = false;
+        };
+    }, [academicYear, course, hasAcademicSelection, year]);
 
 
     // Handle form submission
@@ -150,6 +198,8 @@ function ApplicationForm() {
                 setAcademicYear("");
                 setYear("");
                 setCourse("");
+                setFormStatus(null);
+                setStatusError("");
                 setSelectedBranch("");
                 setSelectedCategory("");
                 setPlace("");
@@ -175,25 +225,20 @@ function ApplicationForm() {
             setIsSubmitting(false);
         }
     };
-    
+
     return (
         <>
             <form onSubmit={handleSubmit}>
-                <label htmlFor="name">
-                    Enter Your Full Name <RequiredMark />
-                </label>
-                <input type="text"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder="Full Name"
-                    required />
-
                 <label htmlFor="acadyear">
                     Select Academic Year <RequiredMark />
                 </label>
                 <select
                     value={academicYear}
-                    onChange={(e) => setAcademicYear(e.target.value)}
+                    onChange={(e) => {
+                        setAcademicYear(e.target.value);
+                        setFormStatus(null);
+                        setStatusError("");
+                    }}
                     required>
                     <option value="">Select Academic Year</option>
                     {acadYears.map((year) => (
@@ -209,7 +254,17 @@ function ApplicationForm() {
                 <select
                     name="course"
                     value={course}
-                    onChange={(e) => setCourse(e.target.value)}
+                    onChange={(e) => {
+                        setCourse(e.target.value);
+                        setSelectedBranch("");
+                        setYear("");
+                        setRollNo("");
+                        setCgpa("");
+                        setCompetitiveRank("");
+                        setSubmitMessage("");
+                        setFormStatus(null);
+                        setStatusError("");
+                    }}
                     required
                 >
                     <option value="">
@@ -235,6 +290,7 @@ function ApplicationForm() {
                 <select name="branch"
                     value={selectedBranch}
                     onChange={(e) => setSelectedBranch(e.target.value)}
+                    disabled={!course}
                     required
                 >
                     <option value="">Select Your Branch</option>
@@ -254,15 +310,19 @@ function ApplicationForm() {
                     name="year"
                     value={year}
                     onChange={(e) => {
-                        setYear(e.target.value)
-                        setRollNo("")
-                        setCgpa("")
-                        setCompetitiveRank("")
-                        setFeesReceipt(null)
-                        setHostelId(null)
-                        setCollegeId(null)
-                        setAdmissionLetter(null)
+                        setYear(e.target.value);
+                        setRollNo("");
+                        setCgpa("");
+                        setCompetitiveRank("");
+                        setFeesReceipt(null);
+                        setHostelId(null);
+                        setCollegeId(null);
+                        setAdmissionLetter(null);
+                        setSubmitMessage("");
+                        setFormStatus(null);
+                        setStatusError("");
                     }}
+                    disabled={!course || !selectedBranch}
                     required
                 >
                     <option value="">
@@ -277,7 +337,32 @@ function ApplicationForm() {
                     }
                 </select>
 
-                 <label htmlFor="roll-number">
+                {hasAcademicSelection && isStatusLoading && (
+                    <p className="submit-message">Checking application status...</p>
+                )}
+
+                {hasAcademicSelection && statusError && (
+                    <p className="submit-message">{statusError}</p>
+                )}
+
+                {hasAcademicSelection && formStatus?.isLive === false && (
+                    <div style={{ maxWidth: "700px", margin: "30px auto", padding: "28px", textAlign: "center", background: "white", borderRadius: "20px", boxShadow: "0 15px 35px rgba(0,0,0,.08)" }}>
+                        <p>Applications are currently closed.</p>
+                        <p>Please wait until the hostel administration opens the application window.</p>
+                    </div>
+                )}
+
+                {shouldRenderApplicationFields && <>
+                <label htmlFor="name">
+                    Enter Your Full Name <RequiredMark />
+                </label>
+                <input type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="Full Name"
+                    required />
+
+                <label htmlFor="roll-number">
                     {isFirstYear ? "Enter Competitive Exam Application Number" : "Enter Your Roll Number"} <RequiredMark />
                 </label>
                 <input
@@ -291,7 +376,7 @@ function ApplicationForm() {
                     required
                 />
 
-                
+
                 <label htmlFor="academic-score">
                     {isFirstYear ? "Enter Latest Competitive Exam Score / Percentile" : "Enter Latest CGPA"} <RequiredMark />
                 </label>
@@ -327,11 +412,11 @@ function ApplicationForm() {
                     Enter Your Email <RequiredMark />
                 </label>
 
-                <input type="email" 
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Email" 
-                required/>
+                <input type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Email"
+                    required />
 
                 <label htmlFor="phone-number">
                     Enter Your Phone Number <RequiredMark />
@@ -455,6 +540,7 @@ function ApplicationForm() {
                 <button type="submit" className="btn" disabled={isSubmitting}>
                     {isSubmitting ? "Submitting..." : "Apply"}
                 </button>
+                </>}
             </form>
         </>
     )

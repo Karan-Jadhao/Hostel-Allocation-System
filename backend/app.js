@@ -3,7 +3,10 @@ import cors from "cors"
 import branchRouter from "./routes/branches.router.js";
 import categoryRouter from "./routes/category.router.js";
 import formRouter from "./routes/form.router.js";
-import allocationRouter from "./routes/allocat.router.js";
+import allocationRouter from "./routes/allocation.router.js";
+import seatMatrixRouter from "./routes/seatMatrix.router.js";
+import adminRouter from "./routes/admin.router.js";
+import formStatusRouter from "./routes/formStatus.router.js";
 
 const app = express();
 
@@ -17,5 +20,8 @@ app.use("/api/branches", branchRouter);
 app.use("/api", categoryRouter);
 app.use("/api/form", formRouter);
 app.use("/api/allocation", allocationRouter);
+app.use("/api/seat-matrix", seatMatrixRouter);
+app.use("/api/admin", adminRouter);
+app.use("/api/form-status", formStatusRouter);
 
 export default app;
