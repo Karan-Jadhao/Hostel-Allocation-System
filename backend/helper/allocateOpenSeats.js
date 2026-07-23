@@ -5,13 +5,14 @@ export const allocateOpenSeats = (
     seatMatrix,
     branches,
     allocations,
-    allocationsMap
+    allocationsMap,
+    openCategoryId
 ) => {
 
     branches.forEach(branch => {
 
         let remainingSeats =
-            seatMatrix[1].perBranchSeats;
+            seatMatrix[openCategoryId].perBranchSeats;
 
         const students =
             groupedStudents.get(branch.id) || [];
@@ -23,7 +24,7 @@ export const allocateOpenSeats = (
 
             const success = addAllocation(
                 student,
-                1,
+                openCategoryId,
                 allocations,
                 allocationsMap
             );

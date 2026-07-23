@@ -87,7 +87,7 @@ export const submitApplication = async (req, res) => {
 
         if (isFirstYear) {
             applicationData = {
-                full_name: fullName,
+                name: fullName,
                 academic_year: academicYear,
                 course,
                 branch_id: Number(selectedBranch),
@@ -106,7 +106,7 @@ export const submitApplication = async (req, res) => {
             };
         } else {
             applicationData = {
-                full_name: fullName,
+                name: fullName,
                 academic_year: academicYear,
                 course,
                 branch_id: Number(selectedBranch),

@@ -1,22 +1,17 @@
 import { supabase} from "../utils/supabase.js";
 
-export const fetchStudents = async(academicYear, course, year, { onlyEligible = true } = {}) => {
+export const fetchAllocations = async(academicYear, course, year) => {
     const table = 
     year === "First Year" ? 
     "firstyear_students" : "students";
 
-    let query = supabase
+    const { data, error } = await supabase
         .from(table)
         .select("*")
         .eq("academic_year", academicYear)
         .eq("course", course)
-        .eq("year_of_study", year);
-
-    if (onlyEligible) {
-        query = query.eq("is_hostelite", false);
-    }
-
-    const { data, error } = await query;
+        .eq("year_of_study", year)
+        .eq("is_hostelite", true);
     
     if (error) {
         throw new Error(error.message);

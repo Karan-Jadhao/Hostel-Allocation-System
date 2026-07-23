@@ -7,7 +7,7 @@ export const buildAllocationResults = (allocations, students, branches, categori
     const allocation = allocationMap.get(student.id);
     return {
       id: student.id,
-      name: student.full_name,
+      name: student.name,
       branch: branchMap.get(student.branch_id) || "—",
       cgpa: year === "First Year" ? (student.rank ?? "—") : (student.cgpa ?? "—"),
       nativePlace: student.native_place || "—",

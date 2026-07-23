@@ -26,7 +26,7 @@ export const getApplicants = async (req, res) => {
             .select("*")
             .eq("academic_year", academicYear)
             .eq("course", course)
-            .eq("year", year);
+            .eq("year_of_study", year);
 
         if (studentError) {
             throw new Error(studentError.message);
@@ -60,7 +60,7 @@ export const getApplicants = async (req, res) => {
 
             id: student.id,
 
-            name: student.full_name,
+            name: student.name,
 
             applicationNo:
                 student.application_number ||
@@ -70,8 +70,7 @@ export const getApplicants = async (req, res) => {
             branch:
                 branchNames.get(student.branch_id) || "-",
 
-            year:
-                student.year_of_study,
+            year_of_study: student.year_of_study,
 
             category:
                 categoryNames.get(student.category_id) || "-",

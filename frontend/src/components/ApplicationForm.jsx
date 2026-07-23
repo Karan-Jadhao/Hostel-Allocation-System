@@ -3,6 +3,7 @@ import PhoneInput from "react-phone-number-input"
 import "react-phone-number-input/style.css"
 import api from "../api/axios"
 import "../styles/ApplicationForm.css"
+import { ConfirmationDialog, SuccessDialog } from "./popups"
 
 function RequiredMark() {
     return <span className="required-mark" aria-hidden="true">*</span>
@@ -37,6 +38,8 @@ function ApplicationForm() {
     // Submission state
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [submitMessage, setSubmitMessage] = useState("")
+    const [showSubmitConfirmation, setShowSubmitConfirmation] = useState(false)
+    const [successMessage, setSuccessMessage] = useState("")
     const [formStatus, setFormStatus] = useState(null)
     const [isStatusLoading, setIsStatusLoading] = useState(false)
     const [statusError, setStatusError] = useState("")
@@ -125,6 +128,7 @@ function ApplicationForm() {
                     setFormStatus({ isLive: Boolean(response.data?.isLive) });
                 }
             } catch (error) {
+                console.log(error);
                 if (isActive) {
                     setFormStatus(null);
                     setStatusError(
@@ -147,8 +151,7 @@ function ApplicationForm() {
 
 
     // Handle form submission
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+    const submitApplication = async () => {
         setIsSubmitting(true);
         setSubmitMessage("");
 
@@ -189,7 +192,8 @@ function ApplicationForm() {
             });
 
             if (response.data.success) {
-                setSubmitMessage("✅ Application submitted successfully!");
+                setShowSubmitConfirmation(false);
+                setSuccessMessage(response.data?.message || "Application submitted successfully!");
                 // Reset form
                 setFullName("");
                 setRollNo("");
@@ -224,6 +228,11 @@ function ApplicationForm() {
         } finally {
             setIsSubmitting(false);
         }
+    };
+
+    const handleSubmit = (event) => {
+        event.preventDefault();
+        setShowSubmitConfirmation(true);
     };
 
     return (
@@ -542,6 +551,17 @@ function ApplicationForm() {
                 </button>
                 </>}
             </form>
+            <ConfirmationDialog
+                open={showSubmitConfirmation}
+                title="Submit application?"
+                description="Please confirm that the application details and uploaded documents are correct."
+                confirmText="Submit application"
+                variant="primary"
+                loading={isSubmitting}
+                onConfirm={submitApplication}
+                onCancel={() => setShowSubmitConfirmation(false)}
+            />
+            <SuccessDialog open={Boolean(successMessage)} title="Application submitted" description={successMessage} onClose={() => setSuccessMessage("")} />
         </>
     )
 }

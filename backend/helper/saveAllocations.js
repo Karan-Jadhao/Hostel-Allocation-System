@@ -19,14 +19,17 @@ export const saveAllocations = async (
         category_id: allocation.category_id,
         academic_year: academicYear,
         course: course,
-        year_of_study: year
+        year: year
 
     }));
 
-    const { data, error } = await supabase
-        .from("allocations")
-        .insert(rows)
-        .select();
+    const { data, error } = await supabase.rpc("commit_hostel_allocations", {
+        p_academic_year: academicYear,
+        p_course: course,
+        p_year: year,
+        p_student_table: studentTable,
+        p_allocations: rows,
+    });
 
     if (error) {
         throw new Error(error.message);

@@ -1,28 +1,28 @@
 import { addAllocation } from "./addAllocation.js";
 
 export const allocateExtraSeats = (
-    students,
+    waitingList,
     seatMatrix,
     allocations,
     allocationMap,
-    categoryId
+    categoryId,
+    allocatedSeatsByBranchCategory
 ) => {
 
     let remainingSeats = seatMatrix[categoryId].remainingExtraSeats;
 
-    for (const student of students) {
+    for (const student of waitingList) {
         
         if (remainingSeats === 0) {
             break;
         }
 
-        if (student.category_id !== categoryId) {
-            continue;
-        }
-
         if (allocationMap.has(student.id)) {
             continue;
         }
+        const key = `${student.branch_id}:${categoryId}`;
+        if ((allocatedSeatsByBranchCategory.get(key) || 0) >= 2) continue;
+
         const success = addAllocation(
             student,
             categoryId,
@@ -31,6 +31,10 @@ export const allocateExtraSeats = (
         );
         if (success) {
             remainingSeats--;
+            allocatedSeatsByBranchCategory.set(
+                key,
+                (allocatedSeatsByBranchCategory.get(key) || 0) + 1
+            );
         }
     }
     seatMatrix[categoryId].remainingExtraSeats = remainingSeats;

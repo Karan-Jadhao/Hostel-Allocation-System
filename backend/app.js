@@ -7,6 +7,8 @@ import allocationRouter from "./routes/allocation.router.js";
 import seatMatrixRouter from "./routes/seatMatrix.router.js";
 import adminRouter from "./routes/admin.router.js";
 import formStatusRouter from "./routes/formStatus.router.js";
+import reportRouter from "./routes/report.router.js";
+
 
 const app = express();
 
@@ -23,5 +25,7 @@ app.use("/api/allocation", allocationRouter);
 app.use("/api/seat-matrix", seatMatrixRouter);
 app.use("/api/admin", adminRouter);
 app.use("/api/form-status", formStatusRouter);
+app.use("/api/reports", reportRouter);
+app.use("/api/report", reportRouter);
 
 export default app;

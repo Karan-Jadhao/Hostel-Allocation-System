@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import api from "../api/axios.js";
 import "../styles/seatConfig.css"
+import { ConfirmationDialog, SuccessDialog } from "./popups";
+import { Link } from "react-router-dom";
 
 function RequiredMark() {
     return <span className="required-mark" aria-hidden="true">*</span>
@@ -14,6 +16,9 @@ function SeatConfig() {
     const [year, setYear] = useState("")
     const [category, setCategory] = useState([])
     const [seatConfig, setSeatConfig] = useState({})
+    const [pendingAction, setPendingAction] = useState(null)
+    const [isActionLoading, setIsActionLoading] = useState(false)
+    const [successMessage, setSuccessMessage] = useState("")
 
 
     const currentYear = new Date().getFullYear();
@@ -80,8 +85,8 @@ function SeatConfig() {
         }))
     }
 
-    const handleSeatSubmit = async (e) => {
-        e.preventDefault()
+    const saveConfiguration = async () => {
+        setIsActionLoading(true)
         try {
             const body = {
                 academicYear,
@@ -98,12 +103,14 @@ function SeatConfig() {
             setCourse("")
             setAcademicYear("")
             setYear("")
-            setSeatConfig("")
+            setSeatConfig({})
+            setPendingAction(null)
+            setSuccessMessage(response.data?.message || "Seat matrix saved successfully.")
         } catch (error) {
             console.log(error);
             
             console.error(error)
-        }
+        } finally { setIsActionLoading(false) }
     }
 
     useEffect(() => {
@@ -133,7 +140,7 @@ function SeatConfig() {
         fetchSeat()
     }, [academicYear, course, year])
 
-    const handleReset = () => {
+    const resetConfiguration = () => {
         setAcademicYear("");
         setCourse("");
         setYear("");
@@ -141,7 +148,8 @@ function SeatConfig() {
         setSeatConfig({});
     };
 
-    const handleDelete = async () => {
+    const deleteConfiguration = async () => {
+        setIsActionLoading(true)
         try {
             const response = await api.delete("/seat-matrix", {
                 data: {
@@ -154,14 +162,36 @@ function SeatConfig() {
             console.log(response.data);
             // Clear the table after successful deletion
             setSeatConfig({});
+            setPendingAction(null);
+            setSuccessMessage(response.data?.message || "Seat matrix configuration deleted successfully.");
         } catch (error) {
             console.error(error);
+        } finally { setIsActionLoading(false); }
+    };
+
+    const handleSeatSubmit = (event) => {
+        event.preventDefault();
+        setPendingAction("save");
+    };
+
+    const confirmAction = () => {
+        if (pendingAction === "delete") return deleteConfiguration();
+        if (pendingAction === "reset") {
+            resetConfiguration();
+            setPendingAction(null);
+            return;
         }
+        return saveConfiguration();
+    };
+
+    const dialogContent = {
+        delete: { title: "Delete seat configuration?", description: "This will permanently remove the saved seat matrix for the selected academic group.", confirmText: "Delete configuration", variant: "danger" },
+        reset: { title: "Reset this form?", description: "All unsaved selections and seat values will be cleared.", confirmText: "Reset form", variant: "warning" },
+        save: { title: "Save seat configuration?", description: "The current seat matrix will be saved for this academic group.", confirmText: "Save configuration", variant: "primary" },
     };
 
     return (
         <>
-
             <div className="seat-config-container">
 
                 <div className="page-header">
@@ -175,9 +205,15 @@ function SeatConfig() {
                             Configure category-wise hostel seat allocation for the selected
                             academic year, course and year of study.
                         </p>
-                    </div>
 
+                        <p>
+                             <Link className="outline-button" to="/admin">
+                    Back to dashboard
+                </Link>
+                        </p>
+                    </div>
                 </div>
+                
 
 
                 <form onSubmit={handleSeatSubmit}>
@@ -383,7 +419,7 @@ function SeatConfig() {
                             <button
                                 type="button"
                                 className="delete-btn"
-                                onClick={handleDelete}
+                                onClick={() => setPendingAction("delete")}
                             >
                                 Delete Configuration
                             </button>
@@ -391,7 +427,7 @@ function SeatConfig() {
                             <button
                                 type="button"
                                 className="reset-btn"
-                                onClick={handleReset}
+                                onClick={() => setPendingAction("reset")}
                             >
                                 Reset
                             </button>
@@ -406,6 +442,8 @@ function SeatConfig() {
                     </div>
                 </form>
             </div>
+            <ConfirmationDialog open={Boolean(pendingAction)} {...dialogContent[pendingAction]} loading={isActionLoading} onConfirm={confirmAction} onCancel={() => setPendingAction(null)} />
+            <SuccessDialog open={Boolean(successMessage)} title="Success!" description={successMessage} onClose={() => setSuccessMessage("")} />
         </>
     )
 }
