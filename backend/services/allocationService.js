@@ -17,6 +17,7 @@ import { sortStudents } from "../helper/sortStudents.js";
 import { allocateOpenSeats } from "../helper/allocateOpenSeats.js";
 import { allocateReservedSeats } from "../helper/allocateReservedSeats.js";
 import { allocateExtraSeats } from "../helper/allocateExtraSeats.js";
+import { addAllocation } from "../helper/addAllocation.js";
 
 import { saveAllocations } from "../helper/saveAllocations.js";
 import { buildAllocationResults } from "../helper/buildAllocationResults.js";
@@ -61,17 +62,33 @@ export const allocateHostelSeats = async (
         );
     }
 
-    const seatMatrix = buildSeatMatrix(seatRows);
-
-    validateSeatMatrix(
-        seatMatrix,
-        branches,
-        students,
-        categories,
-        openCategory.id
+    const otherCategory = categories.find(
+        (category) => normaliseCategoryName(category.category_name) === "OTHER"
     );
 
-    const sortedStudents = sortStudents(students);
+    // OTHER is an unlimited allocation category, so these applicants must not
+    // consume Open or reserved seat-matrix capacity.
+    const seatMatrixStudents = otherCategory
+        ? students.filter((student) => student.category_id !== otherCategory.id)
+        : students;
+    const otherStudents = otherCategory
+        ? students.filter((student) => student.category_id === otherCategory.id)
+        : [];
+
+    const seatMatrix = buildSeatMatrix(seatRows);
+
+    if (seatMatrixStudents.length) {
+        validateSeatMatrix(
+            seatMatrix,
+            branches,
+            seatMatrixStudents,
+            categories,
+            openCategory.id,
+            year
+        );
+    }
+
+    const sortedStudents = sortStudents(seatMatrixStudents, year);
 
     const groupedStudents =
         groupStudentsByBranch(
@@ -82,7 +99,8 @@ export const allocateHostelSeats = async (
     const reservedCategoryIds = categories
         .filter(
             (category) =>
-                category.id !== openCategory.id
+                category.id !== openCategory.id &&
+                category.id !== otherCategory?.id
         )
         .map(
             (category) => category.id
@@ -144,15 +162,26 @@ export const allocateHostelSeats = async (
 
     for (const categoryId of reservedCategoryIds) {
 
+        const category = categories.find((item) => item.id === categoryId);
+        const maxSeatsPerBranch =
+            normaliseCategoryName(category?.category_name) === "ST" ? 1 : 2;
+
         allocateExtraSeats(
             waitingLists.get(categoryId),
             seatMatrix,
             allocations,
             allocationsMap,
             categoryId,
-            allocatedSeatsByBranchCategory
+            allocatedSeatsByBranchCategory,
+            maxSeatsPerBranch
         );
 
+    }
+
+    // OTHER applicants are all allotted hostel; this allocation has no
+    // per-branch or total seat limit.
+    for (const student of otherStudents) {
+        addAllocation(student, otherCategory.id, allocations, allocationsMap);
     }
 
     if (allocations.length) {

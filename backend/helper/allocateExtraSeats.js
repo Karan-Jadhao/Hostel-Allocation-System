@@ -1,12 +1,15 @@
 import { addAllocation } from "./addAllocation.js";
 
+const DEFAULT_MAX_RESERVED_SEATS_PER_BRANCH = 2;
+
 export const allocateExtraSeats = (
     waitingList,
     seatMatrix,
     allocations,
     allocationMap,
     categoryId,
-    allocatedSeatsByBranchCategory
+    allocatedSeatsByBranchCategory,
+    maxSeatsPerBranch = DEFAULT_MAX_RESERVED_SEATS_PER_BRANCH
 ) => {
 
     let remainingSeats = seatMatrix[categoryId].remainingExtraSeats;
@@ -21,7 +24,10 @@ export const allocateExtraSeats = (
             continue;
         }
         const key = `${student.branch_id}:${categoryId}`;
-        if ((allocatedSeatsByBranchCategory.get(key) || 0) >= 2) continue;
+        if (
+            (allocatedSeatsByBranchCategory.get(key) || 0) >=
+            maxSeatsPerBranch
+        ) continue;
 
         const success = addAllocation(
             student,
