@@ -18,6 +18,8 @@ export const submitApplication = async (req, res) => {
             parentPhone,
             selectedCategory,
             place,
+            isPwd,
+            isDefence,
         } = req.body;
 
         const { isLive } = await getFormStatus(
@@ -99,6 +101,8 @@ export const submitApplication = async (req, res) => {
                 personal_phone: phone,
                 parent_phone: parentPhone,
                 category_id: Number(selectedCategory),
+                is_pwd: isPwd === "true",
+                is_defence: isDefence === "true",
                 native_place: place,
                 latest_result: resultUrl,
                 admission_letter: admissionLetterUrl,
@@ -117,6 +121,8 @@ export const submitApplication = async (req, res) => {
                 personal_phone: phone,
                 parent_phone: parentPhone,
                 category_id: Number(selectedCategory),
+                is_pwd: isPwd === "true",
+                is_defence: isDefence === "true",
                 native_place: place,
                 latest_result: resultUrl,
                 hostel_fee_receipt: feesReceiptUrl,

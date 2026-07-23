@@ -13,6 +13,7 @@ export const buildAllocationResults = (allocations, students, branches, categori
       nativePlace: student.native_place || "—",
       studentCategory: categoryMap.get(student.category_id) || "—",
       allocatedCategory: allocation ? categoryMap.get(allocation.category_id) || "Open" : "—",
+      allocationType: allocation?.allocation_type || null,
       allocated: Boolean(allocation),
     };
   });

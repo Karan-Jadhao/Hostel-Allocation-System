@@ -2,6 +2,17 @@
 -- The function serialises one academic-group allocation and commits allocation rows
 -- plus student status changes in the same PostgreSQL transaction.
 
+alter table public.students
+  add column if not exists is_pwd boolean not null default false,
+  add column if not exists is_defence boolean not null default false;
+
+alter table public.firstyear_students
+  add column if not exists is_pwd boolean not null default false,
+  add column if not exists is_defence boolean not null default false;
+
+alter table public.allocations
+  add column if not exists allocation_type text not null default 'REGULAR';
+
 create unique index if not exists allocations_one_result_per_student
   on public.allocations (academic_year, course, year, student_table, student_id);
 
@@ -44,7 +55,7 @@ begin
     with eligible as (
       select s.id
       from %I s
-      join jsonb_to_recordset($1) as r(student_id bigint, branch_id bigint, category_id bigint)
+      join jsonb_to_recordset($1) as r(student_id bigint, branch_id bigint, category_id bigint, allocation_type text)
         on r.student_id = s.id and r.branch_id = s.branch_id
       where s.academic_year = $2
         and s.course = $3
@@ -61,9 +72,9 @@ begin
     raise exception 'One or more selected students are no longer eligible';
   end if;
 
-  insert into allocations (student_id, student_table, branch_id, category_id, academic_year, course, year)
-  select r.student_id, p_student_table, r.branch_id, r.category_id, p_academic_year, p_course, p_year
-  from jsonb_to_recordset(p_allocations) as r(student_id bigint, branch_id bigint, category_id bigint);
+  insert into allocations (student_id, student_table, branch_id, category_id, allocation_type, academic_year, course, year)
+  select r.student_id, p_student_table, r.branch_id, r.category_id, coalesce(r.allocation_type, 'REGULAR'), p_academic_year, p_course, p_year
+  from jsonb_to_recordset(p_allocations) as r(student_id bigint, branch_id bigint, category_id bigint, allocation_type text);
 
   execute format($query$
     update %I s

@@ -9,6 +9,9 @@ function RequiredMark() {
     return <span className="required-mark" aria-hidden="true">*</span>
 }
 
+const PWD_CATEGORIES = new Set(["OPEN", "OBC", "SC", "VJ/DT/NT"])
+const DEFENCE_CATEGORIES = new Set(["OPEN", "OBC", "ST", "SEBC"])
+
 function ApplicationForm() {
     // Data
     const [fullName, setFullName] = useState("")
@@ -21,6 +24,8 @@ function ApplicationForm() {
     const [branch, setBranch] = useState([])
     const [category, setCategory] = useState([])
     const [selectedCategory, setSelectedCategory] = useState("")
+    const [isPwd, setIsPwd] = useState(false)
+    const [isDefence, setIsDefence] = useState(false)
     const [selectedBranch, setSelectedBranch] = useState("")
     const [place, setPlace] = useState("")
     const [cgpa, setCgpa] = useState("")
@@ -47,6 +52,11 @@ function ApplicationForm() {
     const hasAcademicSelection = Boolean(academicYear && course && year)
     const shouldRenderApplicationFields = hasAcademicSelection
         && formStatus?.isLive !== false
+    const selectedCategoryName = String(
+        category.find((item) => String(item.id) === selectedCategory)?.category_name || ""
+    ).trim().toUpperCase()
+    const canApplyForPwd = PWD_CATEGORIES.has(selectedCategoryName)
+    const canApplyForDefence = DEFENCE_CATEGORIES.has(selectedCategoryName)
 
     //For Generation of Academic Year
     const currentYear = new Date().getFullYear();
@@ -172,6 +182,8 @@ function ApplicationForm() {
             formData.append("phone", phone);
             formData.append("parentPhone", parentPhone);
             formData.append("selectedCategory", selectedCategory);
+            formData.append("isPwd", String(isPwd));
+            formData.append("isDefence", String(isDefence));
             formData.append("place", place);
 
             // Append files (only if selected)
@@ -206,6 +218,8 @@ function ApplicationForm() {
                 setStatusError("");
                 setSelectedBranch("");
                 setSelectedCategory("");
+                setIsPwd(false);
+                setIsDefence(false);
                 setPlace("");
                 setCgpa("");
                 setCompetitiveRank("");
@@ -456,7 +470,13 @@ function ApplicationForm() {
                 </label>
                 <select name="category"
                     value={selectedCategory}
-                    onChange={(e) => setSelectedCategory(e.target.value)}
+                    onChange={(e) => {
+                        setSelectedCategory(e.target.value)
+                        // A different regular category can have different
+                        // special-seat eligibility, so clear prior choices.
+                        setIsPwd(false)
+                        setIsDefence(false)
+                    }}
                     required>
                     <option value="">Select Category</option>
                     {
@@ -467,6 +487,24 @@ function ApplicationForm() {
                         ))
                     }
                 </select>
+
+                {canApplyForPwd && <label>
+                    <input
+                        type="checkbox"
+                        checked={isPwd}
+                        onChange={(event) => setIsPwd(event.target.checked)}
+                    />
+                    PwD candidate
+                </label>}
+
+                {canApplyForDefence && <label>
+                    <input
+                        type="checkbox"
+                        checked={isDefence}
+                        onChange={(event) => setIsDefence(event.target.checked)}
+                    />
+                    Defence candidate
+                </label>}
 
                 <label htmlFor="native-place">
                     Enter Your Native Place <RequiredMark />

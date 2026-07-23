@@ -25,6 +25,54 @@ import { buildAllocationResults } from "../helper/buildAllocationResults.js";
 const normaliseCategoryName = (name) =>
     String(name).trim().toUpperCase();
 
+const SPECIAL_SEAT_QUOTAS = [
+    { type: "PWD", studentField: "is_pwd", quotas: { OPEN: 2, OBC: 1, SC: 1, "VJ/DT/NT": 1 } },
+    { type: "DEFENCE", studentField: "is_defence", quotas: { OPEN: 2, OBC: 1, ST: 1, SEBC: 1 } },
+];
+
+const allocateSpecialSeats = ({ sortedStudents, categories, allocations, allocationsMap }) => {
+    const categoryByName = new Map(
+        categories.map((category) => [normaliseCategoryName(category.category_name), category])
+    );
+
+    for (const specialRule of SPECIAL_SEAT_QUOTAS) {
+        for (const [categoryName, totalSeats] of Object.entries(specialRule.quotas)) {
+            const category = categoryByName.get(categoryName);
+            if (!category) {
+                throw new Error(`${categoryName} is missing from the category master.`);
+            }
+
+            const usedBranches = new Set();
+            let allocatedSeats = 0;
+
+            for (const student of sortedStudents) {
+                if (allocatedSeats === totalSeats) break;
+                if (allocationsMap.has(student.id)) continue;
+                if (student.category_id !== category.id || !student[specialRule.studentField]) continue;
+                if (usedBranches.has(student.branch_id)) continue;
+
+                if (addAllocation(student, category.id, allocations, allocationsMap, specialRule.type)) {
+                    usedBranches.add(student.branch_id);
+                    allocatedSeats++;
+                }
+            }
+
+            // An unused supernumerary seat converts to a regular seat in the
+            // branch of the next highest-merit remaining applicant.
+            let convertedSeats = totalSeats - allocatedSeats;
+            for (const student of sortedStudents) {
+                if (convertedSeats === 0) break;
+                if (allocationsMap.has(student.id)) continue;
+                if (student.category_id !== category.id) continue;
+
+                if (addAllocation(student, category.id, allocations, allocationsMap)) {
+                    convertedSeats--;
+                }
+            }
+        }
+    }
+};
+
 export const allocateHostelSeats = async (
     academicYear,
     course,
@@ -130,6 +178,17 @@ export const allocateHostelSeats = async (
 
     const allocatedSeatsByBranchCategory =
         new Map();
+
+    // PwD and Defence quotas are supernumerary. They must be allocated before
+    // regular category seats so eligible applicants do not consume their
+    // category's normal seat first. `allocationsMap` also ensures that an
+    // applicant who qualifies for both quotas is allotted only once.
+    allocateSpecialSeats({
+        sortedStudents,
+        categories,
+        allocations,
+        allocationsMap,
+    });
 
     // Phase 1 - Allocate Open Seats
 
