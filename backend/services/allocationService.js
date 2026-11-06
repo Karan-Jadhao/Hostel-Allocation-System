@@ -17,12 +17,61 @@ import { sortStudents } from "../helper/sortStudents.js";
 import { allocateOpenSeats } from "../helper/allocateOpenSeats.js";
 import { allocateReservedSeats } from "../helper/allocateReservedSeats.js";
 import { allocateExtraSeats } from "../helper/allocateExtraSeats.js";
+import { addAllocation } from "../helper/addAllocation.js";
 
 import { saveAllocations } from "../helper/saveAllocations.js";
 import { buildAllocationResults } from "../helper/buildAllocationResults.js";
 
 const normaliseCategoryName = (name) =>
     String(name).trim().toUpperCase();
+
+const SPECIAL_SEAT_QUOTAS = [
+    { type: "PWD", studentField: "is_pwd", quotas: { OPEN: 2, OBC: 1, SC: 1, "VJ/DT/NT": 1 } },
+    { type: "DEFENCE", studentField: "is_defence", quotas: { OPEN: 2, OBC: 1, ST: 1, SEBC: 1 } },
+];
+
+const allocateSpecialSeats = ({ sortedStudents, categories, allocations, allocationsMap }) => {
+    const categoryByName = new Map(
+        categories.map((category) => [normaliseCategoryName(category.category_name), category])
+    );
+
+    for (const specialRule of SPECIAL_SEAT_QUOTAS) {
+        for (const [categoryName, totalSeats] of Object.entries(specialRule.quotas)) {
+            const category = categoryByName.get(categoryName);
+            if (!category) {
+                throw new Error(`${categoryName} is missing from the category master.`);
+            }
+
+            const usedBranches = new Set();
+            let allocatedSeats = 0;
+
+            for (const student of sortedStudents) {
+                if (allocatedSeats === totalSeats) break;
+                if (allocationsMap.has(student.id)) continue;
+                if (student.category_id !== category.id || !student[specialRule.studentField]) continue;
+                if (usedBranches.has(student.branch_id)) continue;
+
+                if (addAllocation(student, category.id, allocations, allocationsMap, specialRule.type)) {
+                    usedBranches.add(student.branch_id);
+                    allocatedSeats++;
+                }
+            }
+
+            // An unused supernumerary seat converts to a regular seat in the
+            // branch of the next highest-merit remaining applicant.
+            let convertedSeats = totalSeats - allocatedSeats;
+            for (const student of sortedStudents) {
+                if (convertedSeats === 0) break;
+                if (allocationsMap.has(student.id)) continue;
+                if (student.category_id !== category.id) continue;
+
+                if (addAllocation(student, category.id, allocations, allocationsMap)) {
+                    convertedSeats--;
+                }
+            }
+        }
+    }
+};
 
 export const allocateHostelSeats = async (
     academicYear,
@@ -61,17 +110,33 @@ export const allocateHostelSeats = async (
         );
     }
 
-    const seatMatrix = buildSeatMatrix(seatRows);
-
-    validateSeatMatrix(
-        seatMatrix,
-        branches,
-        students,
-        categories,
-        openCategory.id
+    const otherCategory = categories.find(
+        (category) => normaliseCategoryName(category.category_name) === "OTHER"
     );
 
-    const sortedStudents = sortStudents(students);
+    // OTHER is an unlimited allocation category, so these applicants must not
+    // consume Open or reserved seat-matrix capacity.
+    const seatMatrixStudents = otherCategory
+        ? students.filter((student) => student.category_id !== otherCategory.id)
+        : students;
+    const otherStudents = otherCategory
+        ? students.filter((student) => student.category_id === otherCategory.id)
+        : [];
+
+    const seatMatrix = buildSeatMatrix(seatRows);
+
+    if (seatMatrixStudents.length) {
+        validateSeatMatrix(
+            seatMatrix,
+            branches,
+            seatMatrixStudents,
+            categories,
+            openCategory.id,
+            year
+        );
+    }
+
+    const sortedStudents = sortStudents(seatMatrixStudents, year);
 
     const groupedStudents =
         groupStudentsByBranch(
@@ -82,7 +147,8 @@ export const allocateHostelSeats = async (
     const reservedCategoryIds = categories
         .filter(
             (category) =>
-                category.id !== openCategory.id
+                category.id !== openCategory.id &&
+                category.id !== otherCategory?.id
         )
         .map(
             (category) => category.id
@@ -112,6 +178,17 @@ export const allocateHostelSeats = async (
 
     const allocatedSeatsByBranchCategory =
         new Map();
+
+    // PwD and Defence quotas are supernumerary. They must be allocated before
+    // regular category seats so eligible applicants do not consume their
+    // category's normal seat first. `allocationsMap` also ensures that an
+    // applicant who qualifies for both quotas is allotted only once.
+    allocateSpecialSeats({
+        sortedStudents,
+        categories,
+        allocations,
+        allocationsMap,
+    });
 
     // Phase 1 - Allocate Open Seats
 
@@ -144,15 +221,26 @@ export const allocateHostelSeats = async (
 
     for (const categoryId of reservedCategoryIds) {
 
+        const category = categories.find((item) => item.id === categoryId);
+        const maxSeatsPerBranch =
+            normaliseCategoryName(category?.category_name) === "ST" ? 1 : 2;
+
         allocateExtraSeats(
             waitingLists.get(categoryId),
             seatMatrix,
             allocations,
             allocationsMap,
             categoryId,
-            allocatedSeatsByBranchCategory
+            allocatedSeatsByBranchCategory,
+            maxSeatsPerBranch
         );
 
+    }
+
+    // OTHER applicants are all allotted hostel; this allocation has no
+    // per-branch or total seat limit.
+    for (const student of otherStudents) {
+        addAllocation(student, otherCategory.id, allocations, allocationsMap);
     }
 
     if (allocations.length) {

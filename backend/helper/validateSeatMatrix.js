@@ -1,9 +1,25 @@
+const RESERVED_CATEGORY_RULES = {
+    OBC: { perBranchSeats: 2, extraSeats: 0 },
+    SC: { perBranchSeats: 1, extraSeats: 4 },
+    ST: { perBranchSeats: 0, extraSeats: 7 },
+    VJDTNT: { perBranchSeats: 1, extraSeats: 2 },
+    EWS: { perBranchSeats: 1, extraSeats: 1 },
+    SEBC: { perBranchSeats: 1, extraSeats: 1 },
+    ORPHAN: { perBranchSeats: 0, extraSeats: 1 },
+};
+
+const normaliseCategoryName = (name) => String(name)
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+
 export const validateSeatMatrix = (
     seatMatrix,
     branches,
     students,
     categories,
-    openCategoryId
+    openCategoryId,
+    year
 ) => {
 
     // Basic validation
@@ -40,6 +56,11 @@ export const validateSeatMatrix = (
     // Validate every category has a seat configuration
     for (const category of categories) {
 
+        // OTHER applicants receive an allocation outside the seat matrix.
+        if (normaliseCategoryName(category.category_name) === "OTHER") {
+            continue;
+        }
+
         const seats = seatMatrix[category.id];
 
         if (!seats) {
@@ -66,15 +87,24 @@ export const validateSeatMatrix = (
 
         } else {
 
-            if (seats.perBranchSeats !== 1) {
+            const categoryName = normaliseCategoryName(category.category_name);
+
+            const categoryRule = RESERVED_CATEGORY_RULES[categoryName] ?? {
+                perBranchSeats: 1,
+                extraSeats: 1,
+            };
+
+            if (seats.perBranchSeats !== categoryRule.perBranchSeats) {
                 throw new Error(
-                    `${category.category_name} must have exactly 1 base seat per branch.`
+                    `${category.category_name} must have exactly ${categoryRule.perBranchSeats} base seat${categoryRule.perBranchSeats === 1 ? "" : "s"} per branch.`
                 );
             }
 
-            if (seats.extraSeats !== 1) {
+            const requiredExtraSeats = categoryRule.extraSeats;
+
+            if (seats.extraSeats !== requiredExtraSeats) {
                 throw new Error(
-                    `${category.category_name} must have exactly 1 extra seat.`
+                    `${category.category_name} must have exactly ${requiredExtraSeats} extra seat${requiredExtraSeats === 1 ? "" : "s"}.`
                 );
             }
 
@@ -82,15 +112,23 @@ export const validateSeatMatrix = (
     }
 
     // Validate students
-    const rollNumbers = new Set();
+    const studentIdentifiers = new Set();
 
     for (const student of students) {
 
-        if (rollNumbers.has(student.roll_no)) {
-            throw new Error(`Duplicate roll number found: ${student.roll_no}`);
+        const identifier = year === "First Year"
+            ? student.application_number
+            : student.roll_no ?? student.roll_number;
+
+        if (!identifier) {
+            throw new Error(`${student.name} has no application or roll number.`);
         }
 
-        rollNumbers.add(student.roll_no);
+        if (studentIdentifiers.has(identifier)) {
+            throw new Error(`Duplicate application or roll number found: ${identifier}`);
+        }
+
+        studentIdentifiers.add(identifier);
 
         if (!branchIds.has(student.branch_id)) {
             throw new Error(
@@ -104,16 +142,20 @@ export const validateSeatMatrix = (
             );
         }
 
-        const cgpa = Number(student.cgpa);
+        if (year === "First Year") {
+            const rank = Number(student.rank);
 
-        if (
-            !Number.isFinite(cgpa) ||
-            cgpa < 0 ||
-            cgpa > 10
-        ) {
+            if (!Number.isInteger(rank) || rank < 1) {
+                throw new Error(`${student.name} has an invalid competitive exam rank.`);
+            }
+        } else {
+            const cgpa = Number(student.cgpa);
+
+            if (!Number.isFinite(cgpa) || cgpa < 0 || cgpa > 10) {
             throw new Error(
                 `${student.name} has an invalid CGPA.`
             );
+            }
         }
     }
 

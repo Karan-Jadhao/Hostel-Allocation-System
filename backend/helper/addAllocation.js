@@ -2,7 +2,8 @@ export const addAllocation = (
     student,
     categoryId,
     allocations,
-    allocationsMap
+    allocationsMap,
+    allocationType = "REGULAR"
 ) => {
 
     if (allocationsMap.has(student.id))
@@ -11,7 +12,8 @@ export const addAllocation = (
     allocations.push({
         student_id: student.id,
         branch_id: student.branch_id,
-        category_id: categoryId
+        category_id: categoryId,
+        allocation_type: allocationType
 
     });
 

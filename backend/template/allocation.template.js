@@ -84,6 +84,8 @@ export function allocationTemplate(data) {
 
                 <th>Allocated Through</th>
 
+                <th>Allocation Type</th>
+
                 <th>Status</th>
 
             </tr>
@@ -108,6 +110,8 @@ export function allocationTemplate(data) {
                     <td>${student.studentCategory}</td>
 
                     <td>${student.allocatedCategory}</td>
+
+                    <td>${student.allocationType || "Regular"}</td>
 
                     <td>
                         ${

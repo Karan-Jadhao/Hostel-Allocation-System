@@ -32,6 +32,7 @@ export default function AllocationResultsTable({ results }) {
                             <th>Merit</th>
                             <th>Student category</th>
                             <th>Allotted through</th>
+                            <th>Allocation type</th>
                             <th>Status</th>
                         </tr>
                     </thead>
@@ -50,6 +51,8 @@ export default function AllocationResultsTable({ results }) {
                                 <td>{student.studentCategory}</td>
 
                                 <td>{student.allocatedCategory}</td>
+
+                                <td>{student.allocationType || "â€”"}</td>
 
                                 <td>
                                     <span

@@ -17,6 +17,7 @@ export const saveAllocations = async (
         student_table: studentTable,
         branch_id: allocation.branch_id,
         category_id: allocation.category_id,
+        allocation_type: allocation.allocation_type || "REGULAR",
         academic_year: academicYear,
         course: course,
         year: year
